@@ -8,8 +8,16 @@ import (
 
 func TestSampleTelegrams(t *testing.T) {
 	testVector := [][]byte{
+		// trivial cases
+		{0, 0},
+		{0, 0, 0},
+		{0, 0, 0, 0, 0x00, 0, 0},
+
+		// EnOcean Serial Protocol header without sync byte
 		{0, 7, 2, 10, 10},
 		{0, 10, 2, 10, 0x9b},
+
+		// EnOcean Serial Protocol data samples
 		// wrong sample?{0x20, 0, 0x29, 0x91, 0xf1, 0x88, 0, 2, 0x2a, 0xfc},
 		{0x22, 4, 0, 0x1d, 0x6e, 0, 0, 0x4b, 8, 0xe5, 3, 0x31, 0xa8},
 		{32, 0, 41, 145, 150, 0, 14, 1, 41, 202},
