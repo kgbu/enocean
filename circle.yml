@@ -1,0 +1,37 @@
+general:
+  artifacts:
+    - "/home/ubuntu/.go_workspace/src/github.com/kgbu/enocean/downloads"
+
+machine:
+  environment:
+    GOPATH: "/home/ubuntu/.go_workspace"
+    ORG_PATH: "github.com/kgbu"
+    REPO_PATH: "${ORG_PATH}/enocean"
+    PATH: "${PATH}:${GOPATH}/bin"
+  services:
+    - docker
+
+dependencies:
+  override:
+    - rm -rf ${GOPATH}/src/${REPO_PATH}
+    - mkdir -p ${GOPATH}/src/${ORG_PATH}
+    - cp -r ../enocean ${GOPATH}/src/${ORG_PATH}
+    - go get github.com/kr/godep
+    - cd ${GOPATH}/src/${REPO_PATH} && godep restore
+
+test:
+  override:
+    - godep go build:
+        pwd: ../.go_workspace/src/${REPO_PATH}
+    - godep go test -coverpkg github.com/kgbu/enocean ./...:
+        pwd: ../.go_workspace/src/${REPO_PATH}
+  post:
+    - make arm5 arm6 arm7 linux_386 linux_amd64 raspi raspi2 armadillo edison:
+        pwd: ../.go_workspace/src/${REPO_PATH}
+
+deployment:
+  production:
+    branch: master
+    commands:
+      - go get github.com/tcnksm/ghr
+      - ghr -u kgbu -r enocean --replace --prerelease pre-release /home/ubuntu/.go_workspace/src/github.com/kgbu/enocean/downloads
