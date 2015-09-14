@@ -2,8 +2,6 @@ package enocean
 
 import (
 	"testing"
-
-	"github.com/kgbu/enocean"
 )
 
 func TestSampleTelegrams(t *testing.T) {
@@ -32,8 +30,8 @@ func TestSampleTelegrams(t *testing.T) {
 
 	for _, vec := range testVector {
 		sample := vec[:len(vec)-1]
-		if enocean.CRC8(sample) != vec[len(vec)-1] {
-			t.Errorf("%v caused %x shall be %x", sample, enocean.CRC8(sample), vec[len(vec)-1])
+		if CRC8(sample) != vec[len(vec)-1] {
+			t.Errorf("%v caused %x shall be %x", sample, CRC8(sample), vec[len(vec)-1])
 		}
 	}
 }

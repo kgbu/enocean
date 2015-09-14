@@ -61,9 +61,9 @@ func NewESPData(src []byte) (error, int, ESPData) {
 	}
 
 	// Check Data CRC
-	if CRC8(src[6:(totalLength - 1)]) != src[totalLength - 1] {
+	if CRC8(src[6:(totalLength-1)]) != src[totalLength-1] {
 		consumedBytes = totalLength
-		return errors.New(fmt.Sprintf("Data CRC Byte does not match. Please shift this telegram %v", CRC8(src[6:(totalLength - 1)]))), consumedBytes, e
+		return errors.New(fmt.Sprintf("Data CRC Byte does not match. Please shift this telegram %v", CRC8(src[6:(totalLength-1)]))), consumedBytes, e
 	}
 
 	// Check packet type is ERP telegram
@@ -127,9 +127,9 @@ func NewESPData(src []byte) (error, int, ESPData) {
 	e.TeachIn = int(src[payloadPosition+payloadLength-1])&0x08 == 0x00
 
 	if e.TeachIn && (e.RORG == 0xa5) {
-		e.FUNC = byte(int(e.PayloadData[0] & 0xFC) >> 2)
+		e.FUNC = byte(int(e.PayloadData[0]&0xFC) >> 2)
 		e.TYPE = byte(int(e.PayloadData[0])<<5 + int(e.PayloadData[1])>>3)
-		e.ManufacturerId = int(e.PayloadData[1] & 0x07)<<8 + int(e.PayloadData[2])
+		e.ManufacturerId = int(e.PayloadData[1]&0x07)<<8 + int(e.PayloadData[2])
 	}
 
 	return nil, totalLength, e
