@@ -2,62 +2,71 @@ package enocean
 
 import (
 	"encoding/json"
-	"log"
+	"errors"
+	"fmt"
 )
 
-type ESPdata struct {
+const (
+	SyncByte         byte = 0x55
+	ESPHeaderLength       = 6
+	ESPCRCLength          = 1
+	ESP3PacketType10      = 10
+)
+
+type ESPData struct {
 	RORG           byte
 	FUNC           byte
 	TYPE           byte
 	ManufacturerId int
 	TeachIn        bool
-	OriginatorID   []byte
-	DestinationID  []byte
-	DataPayload    []byte
+	OriginatorId   []byte
+	DestinationId  []byte
+	PayloadData    []byte
 	RSSI           byte
 }
 
-func ToJSON(e ESPData) string {
+func ToJSON(e ESPData) ([]byte, error) {
 	return json.Marshal(e)
 }
 
 func NewESPData(src []byte) (error, int, ESPData) {
-	e = ESPData{}
+	e := ESPData{}
+	consumedBytes := 0
 
 	// Check Header length : shall be > 6
 	if len(src) <= 6 {
 		consumedBytes = 0
-		return errors.New("too short data length %v", len(src)), consumedBytes, nil
+		return errors.New(fmt.Sprintf("too short data length %v", len(src))), consumedBytes, e
 	}
 
 	// Check sync byte
 	if src[0] != SyncByte {
 		consumedBytes = 1
-		return errors.New("Sync Byte does not match. Please shift one byte"), consumedBytes, nil
+		return errors.New("Sync Byte does not match. Please shift one byte"), consumedBytes, e
 	}
 
 	// Check data length
-	dataLength = (int(src[1]) << 8) + int(src[2])
-	optionalDataLength = int(src[3])
-	totalLength = ESPHeaderLength + dataLength + optionalDataLength + ESPCRCLength
+	dataLength := (int(src[1]) << 8) + int(src[2])
+	optionalDataLength := int(src[3])
+	totalLength := ESPHeaderLength + dataLength + optionalDataLength + ESPCRCLength
 	if totalLength > len(src) {
 		consumedBytes = 0
-		return errors.New("too short data length %v than total length: %v", len(src), totalLength), consumedBytes, nil
+		return errors.New(fmt.Sprintf("too short data length %v than total length: %v", len(src), totalLength)), consumedBytes, e
 	}
 
 	// Check packet type is ERP telegram
 	if src[4] != 0x0A {
-		return errors.New("Unknown packet type %v than 0x0A (Enocean Radio Telegram)"), int(src[4]), totalLength, nil
+		return errors.New(fmt.Sprintf("Unknown packet type %v than 0x0A (Enocean Radio Telegram)", int(src[4]))), totalLength, e
 	}
 
 	// Check Address Controll
 	addressControl := (int(src[6]) & 0xE0) >> 5
 	extendedHeaderExists := (int(src[6]) & 0x10) == 0x10
 	if extendedHeaderExists == true {
-		return errors.New("Unknown packet structure which have Extended Header"), totalLength, nil
+		return errors.New("Unknown packet structure which have Extended Header"), totalLength, e
 	}
 
-	payloadPosition = 10
+	payloadPosition := 10
 	switch addressControl {
 	case 0:
 		for i := 7; i < 10; i++ {
@@ -85,6 +94,8 @@ func NewESPData(src []byte) (error, int, ESPData) {
 	}
 
 	telegramType := src[6] & 0x07
+	payloadLength := 1
+
 	switch telegramType {
 	case 0x0:
 		e.RORG = 0xf6
@@ -104,9 +115,9 @@ func NewESPData(src []byte) (error, int, ESPData) {
 	e.TeachIn = int(src[payloadPosition+payloadLength-1])&0x08 == 0x08
 
 	if e.TeachIn && (e.RORG == 0xa5) {
-		e.FUNC = int(e.PayloadData[0] && 0xFC) >> 2
-		e.TYPE = int(e.PayloadData[0])<<5 + int(e.PayloadData[1])>>3
-		e.ManufacturerId = int(e.PayloadData[1] && 0x07)<<8 + int(e.PayloadData[2])
+		e.FUNC = byte(int(e.PayloadData[0] & 0xFC) >> 2)
+		e.TYPE = byte(int(e.PayloadData[0])<<5 + int(e.PayloadData[1])>>3)
+		e.ManufacturerId = int(e.PayloadData[1] & 0x07)<<8 + int(e.PayloadData[2])
 	}
 
 	return nil, totalLength, e
