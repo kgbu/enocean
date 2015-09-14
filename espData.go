@@ -45,6 +45,12 @@ func NewESPData(src []byte) (error, int, ESPData) {
 		return errors.New("Sync Byte does not match. Please shift one byte"), consumedBytes, e
 	}
 
+	// Check Header CRC
+	if CRC8(src[1:5]) != src[5] {
+		consumedBytes = 1
+		return errors.New("Header CRC Byte does not match. Please shift one byte"), consumedBytes, e
+	}
+
 	// Check data length
 	dataLength := (int(src[1]) << 8) + int(src[2])
 	optionalDataLength := int(src[3])
@@ -52,6 +58,12 @@ func NewESPData(src []byte) (error, int, ESPData) {
 	if totalLength > len(src) {
 		consumedBytes = 0
 		return errors.New(fmt.Sprintf("too short data length %v than total length: %v", len(src), totalLength)), consumedBytes, e
+	}
+
+	// Check Data CRC
+	if CRC8(src[6:(totalLength - 1)]) != src[totalLength - 1] {
+		consumedBytes = totalLength
+		return errors.New(fmt.Sprintf("Data CRC Byte does not match. Please shift this telegram %v", CRC8(src[6:(totalLength - 1)]))), consumedBytes, e
 	}
 
 	// Check packet type is ERP telegram
