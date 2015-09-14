@@ -124,7 +124,7 @@ func NewESPData(src []byte) (error, int, ESPData) {
 		e.PayloadData = append(e.PayloadData, src[i])
 	}
 
-	e.TeachIn = int(src[payloadPosition+payloadLength-1])&0x08 == 0x08
+	e.TeachIn = int(src[payloadPosition+payloadLength-1])&0x08 == 0x00
 
 	if e.TeachIn && (e.RORG == 0xa5) {
 		e.FUNC = byte(int(e.PayloadData[0] & 0xFC) >> 2)
