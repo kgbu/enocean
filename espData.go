@@ -22,7 +22,7 @@ type ESPData struct {
 	OriginatorId   []byte
 	DestinationId  []byte
 	PayloadData    []byte
-	RSSI           byte
+	RSSI           byte		// raw data (without minus sign)
 }
 
 func ToJSON(e ESPData) ([]byte, error) {
@@ -120,6 +120,8 @@ func NewESPData(src []byte) (error, int, ESPData) {
 		payloadLength = 4
 	}
 
+	optionaldataPosition := payloadPosition + payloadLength
+
 	for i := payloadPosition; i < (payloadPosition + payloadLength); i++ {
 		e.PayloadData = append(e.PayloadData, src[i])
 	}
@@ -131,6 +133,8 @@ func NewESPData(src []byte) (error, int, ESPData) {
 		e.TYPE = byte(int(e.PayloadData[0])<<5 + int(e.PayloadData[1])>>3)
 		e.ManufacturerId = int(e.PayloadData[1]&0x07)<<8 + int(e.PayloadData[2])
 	}
+
+	e.RSSI = src[optionaldataPosition]
 
 	return nil, totalLength, e
 }
