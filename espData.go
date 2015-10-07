@@ -120,7 +120,7 @@ func NewESPData(src []byte) (error, int, ESPData) {
 		payloadLength = 4
 	}
 
-	optionaldataPosition := payloadPosition + payloadLength
+	optionaldataPosition := payloadPosition + payloadLength + 1
 
 	for i := payloadPosition; i < (payloadPosition + payloadLength); i++ {
 		e.PayloadData = append(e.PayloadData, src[i])
@@ -134,7 +134,7 @@ func NewESPData(src []byte) (error, int, ESPData) {
 		e.ManufacturerId = int(e.PayloadData[1]&0x07)<<8 + int(e.PayloadData[2])
 	}
 
-	e.RSSI = src[optionaldataPosition]
+	e.RSSI = src[optionaldataPosition + 1]
 
 	return nil, totalLength, e
 }
