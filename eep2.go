@@ -17,5 +17,5 @@ type ERP2inESP3 struct {
 
 type ERP2 struct {
 	Length byte
-	Body   EEP2inESP3
+	Body   ERP2inESP3
 }

@@ -1,7 +1,8 @@
-package enocean
+package main
 
 import (
 	"testing"
+	"github.com/kgbu/enocean"
 )
 
 func TestVariousPacketAccept(t *testing.T) {
@@ -43,7 +44,7 @@ func TestVariousPacketAccept(t *testing.T) {
 	}
 
 	for _, v := range patterns {
-		err, consumedBytes, _ := NewESPData(v)
+		err, consumedBytes, _ := enocean.NewESPData(v)
 		if err != nil {
 			t.Errorf("ERROR: %v, parse failed on %v. consumed %v, ", err, v, consumedBytes)
 		}
@@ -57,7 +58,7 @@ func TestVariousRORGTeachInPacketAccept(t *testing.T) {
 	}
 
 	for _, v := range patterns {
-		err, consumedBytes, e := NewESPData(v)
+		err, consumedBytes, e := enocean.NewESPData(v)
 		if err != nil {
 			t.Errorf("ERROR: %v, parse failed on %v. consumed %v, ", err, v, consumedBytes)
 		}
@@ -78,7 +79,7 @@ func TestRSSIvalue(t *testing.T) {
 	}
 
 	for _, v := range patterns {
-		err, consumedBytes, e := NewESPData(v)
+		err, consumedBytes, e := enocean.NewESPData(v)
 		if err != nil {
 			t.Errorf("ERROR: %v, parse failed on %v. consumed %v, ", err, v, consumedBytes)
 		}
