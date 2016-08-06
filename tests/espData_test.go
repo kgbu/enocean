@@ -55,12 +55,26 @@ func TestVariousRORGTeachInPacketAccept(t *testing.T) {
 	patterns := [][]byte{
 		{85, 0, 12, 2, 10, 230, 98, 0, 0, 4, 0, 87, 200, 8, 40, 11, 128, 131, 1, 53, 158},
 		{85, 0, 12, 2, 10, 230, 98, 0, 0, 4, 1, 121, 77, 16, 8, 11, 128, 48, 1, 41, 202},
+		{85, 0, 10, 2, 10, 155, 34, 4, 0, 79, 66, 0, 0, 62, 8, 78, 1, 55, 144, 10},	// not TeachIn case
 	}
 
-	for _, v := range patterns {
+	validity := []bool{
+		true,
+		true,
+		false,
+	}
+
+	for i, v := range patterns {
 		err, consumedBytes, e := enocean.NewESPData(v)
 		if err != nil {
 			t.Errorf("ERROR: %v, parse failed on %v. consumed %v, ", err, v, consumedBytes)
+		}
+		if (!validity[i]) {
+			if (e.TeachIn == true) {
+				t.Errorf("ERROR: %v, not teach in data is flagged as teach-in at %v", e, i)
+			} else {
+				continue
+			}
 		}
 		if (e.TeachIn == false) ||
 			(e.RORG == 0) ||
