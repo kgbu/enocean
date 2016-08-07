@@ -83,6 +83,38 @@ func pubsub(c *cli.Context) error {
 }
 
 
+
 func main() {
-	
+	app = cli.NewApp()
+	app.Name = "mqttworkerforenocean-sample"
+	app.Usage = "worker -c config-file"
+	app.Version = version
+
+	app.Flags = []cli.Flag{
+		cli.IntFlag{
+			Name:	"port, p",
+			Value:	1883,
+			Usage:	"port number of broker",
+		},
+		cli.StringFlag{
+			Name:   "host, h",
+			Value:  "localhost",
+			Usage:  "broker hostname",
+		},
+		cli.StringFlag{
+			Name:	"sub, s",
+			Value:	"prefix/gateway/enocean/publish",
+			Usage:	"subscribe topic",
+		}
+		cli.BoolFlag{
+			Name:  "d",
+			Usage: "run in verbose mode",
+		},
+	}
+
+	cli.VersionPrinter = printVersion
+
+	app.Action = Action
+	app.Run(os.Args)
 }
+
