@@ -1,10 +1,10 @@
 package main
 
 import (
-	log	"github.com/Sirupsen/logrus"
+	log "github.com/Sirupsen/logrus"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/urfave/cli"
-	)
+)
 
 var usage = `
 Usage here
@@ -17,14 +17,68 @@ func init() {
 	log.SetOutput(colorable.NewColorableStdout())
 }
 
+// MQTT operations
+
 func getRandomClientId() string {
-        const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-        var bytes = make([]byte, 9)
-        rand.Read(bytes)
-        for i, b := range bytes {
-                bytes[i] = alphanum[b%byte(len(alphanum))]
-        }
-        return "mqttwrk-" + string(bytes)
+	const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	var bytes = make([]byte, 9)
+	rand.Read(bytes)
+	for i, b := range bytes {
+		bytes[i] = alphanum[b%byte(len(alphanum))]
+	}
+	return "mqttwrk-" + string(bytes)
+}
+
+// Connects connect to the MQTT broker with Options.
+func (m *MQTTClient) Connect() (MQTT.Client, error) {
+
+	m.Client = MQTT.NewClient(m.Opts)
+
+	log.Info("connecting...")
+
+	if token := m.Client.Connect(); token.Wait() && token.Error() != nil {
+		return nil, token.Error()
+	}
+	return m.Client, nil
+}
+
+func (m *MQTTClient) Publish(topic string, payload []byte, qos int, retain bool, sync bool) error {
+	token := m.Client.Publish(topic, byte(qos), retain, payload)
+
+	if sync == true {
+		token.Wait()
+	}
+
+	return token.Error()
+}
+
+func (m *MQTTClient) Disconnect() error {
+	if m.Client.IsConnected() {
+		m.Client.Disconnect(20)
+		log.Info("client disconnected")
+	}
+	return nil
+}
+
+func (m *MQTTClient) SubscribeOnConnect(client MQTT.Client) {
+	log.Infof("client connected")
+
+	if len(m.Subscribed) > 0 {
+		token := client.SubscribeMultiple(m.Subscribed, m.onMessageReceived)
+		token.Wait()
+		if token.Error() != nil {
+			log.Error(token.Error())
+		}
+	}
+}
+
+func (m *MQTTClient) ConnectionLost(client MQTT.Client, reason error) {
+	log.Errorf("client disconnected: %s", reason)
+}
+
+func (m *MQTTClient) onMessageReceived(client MQTT.Client, message MQTT.Message) {
+	log.Infof("topic:%s / msg:%s", message.Topic(), message.Payload())
+	fmt.Println(string(message.Payload()))
 }
 
 // connects MQTT broker
@@ -96,8 +150,6 @@ func pubsub(c *cli.Context) error {
 	return nil
 }
 
-
-
 func main() {
 	app = cli.NewApp()
 	app.Name = "mqttworkerforenocean-sample"
@@ -106,34 +158,34 @@ func main() {
 
 	app.Flags = []cli.Flag{
 		cli.IntFlag{
-			Name:	"port, p",
-			Value:	1883,
-			Usage:	"port number of broker",
+			Name:  "port, p",
+			Value: 1883,
+			Usage: "port number of broker",
 		},
 		cli.StringFlag{
-			Name:   "host, h",
-			Value:  "localhost",
-			Usage:  "broker hostname",
-		},
-                cli.StringFlag{
-                        Name:   "u,user",
-                        Value:  "",
-                        Usage:  "provide a username",
-                        EnvVar: "USERNAME"},
-                cli.StringFlag{
-                        Name:   "P,password",
-                        Value:  "",
-                        Usage:  "password",
-                        EnvVar: "PASSWORD"},
-		cli.StringFlag{
-			Name:	"sub",
-			Value:	"prefix/gateway/enocean/publish",
-			Usage:	"subscribe topic",
+			Name:  "host, h",
+			Value: "localhost",
+			Usage: "broker hostname",
 		},
 		cli.StringFlag{
-			Name:	"pub",
-			Value:	"prefix/worker/enocean/publish",
-			Usage:	"publish parsed data topic",
+			Name:   "u,user",
+			Value:  "",
+			Usage:  "provide a username",
+			EnvVar: "USERNAME"},
+		cli.StringFlag{
+			Name:   "P,password",
+			Value:  "",
+			Usage:  "password",
+			EnvVar: "PASSWORD"},
+		cli.StringFlag{
+			Name:  "sub",
+			Value: "prefix/gateway/enocean/publish",
+			Usage: "subscribe topic",
+		},
+		cli.StringFlag{
+			Name:  "pub",
+			Value: "prefix/worker/enocean/publish",
+			Usage: "publish parsed data topic",
 		},
 		cli.IntFlag{
 			Name:  "q",
@@ -151,4 +203,3 @@ func main() {
 	app.Action = Action
 	app.Run(os.Args)
 }
-
