@@ -1,7 +1,7 @@
 package main
 
 import (
-	CLIENT "github.com/shirou/mqttcli"
+	log	"github.com/Sirupsen/logrus"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/urfave/cli"
 	)
@@ -10,7 +10,21 @@ var usage = `
 Usage here
 `
 
+var version = "0.1"
+
 func init() {
+	log.SetLevel(log.WarnLevel)
+	log.SetOutput(colorable.NewColorableStdout())
+}
+
+func getRandomClientId() string {
+        const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+        var bytes = make([]byte, 9)
+        rand.Read(bytes)
+        for i, b := range bytes {
+                bytes[i] = alphanum[b%byte(len(alphanum))]
+        }
+        return "mqttwrk-" + string(bytes)
 }
 
 // connects MQTT broker
@@ -39,7 +53,7 @@ func pubsub(c *cli.Context) error {
 		os.Exit(1)
 	}
 
-	qos := c.Int("q")
+	qos := 0
 	subtopic := c.String("sub")
 	if subtopic == "" {
 		log.Errorf("Please specify sub topic")
@@ -101,11 +115,31 @@ func main() {
 			Value:  "localhost",
 			Usage:  "broker hostname",
 		},
+                cli.StringFlag{
+                        Name:   "u,user",
+                        Value:  "",
+                        Usage:  "provide a username",
+                        EnvVar: "USERNAME"},
+                cli.StringFlag{
+                        Name:   "P,password",
+                        Value:  "",
+                        Usage:  "password",
+                        EnvVar: "PASSWORD"},
 		cli.StringFlag{
-			Name:	"sub, s",
+			Name:	"sub",
 			Value:	"prefix/gateway/enocean/publish",
 			Usage:	"subscribe topic",
-		}
+		},
+		cli.StringFlag{
+			Name:	"pub",
+			Value:	"prefix/worker/enocean/publish",
+			Usage:	"publish parsed data topic",
+		},
+		cli.IntFlag{
+			Name:  "q",
+			Value: 0,
+			Usage: "Qos level to publish",
+		},
 		cli.BoolFlag{
 			Name:  "d",
 			Usage: "run in verbose mode",
