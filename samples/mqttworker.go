@@ -1,6 +1,12 @@
 package main
 
 import (
+	"bufio"
+	"crypto/rand"
+	"fmt"
+	"os"
+	"time"
+
 	log "github.com/Sirupsen/logrus"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/urfave/cli"
@@ -10,15 +16,14 @@ var usage = `
 Usage here
 `
 
-var version = "0.1"
+var version = "sample"
+var Subscribed map[string]byte
 
 func init() {
 	log.SetLevel(log.WarnLevel)
-	log.SetOutput(colorable.NewColorableStdout())
 }
 
 // MQTT operations
-
 func getRandomClientId() string {
 	const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 	var bytes = make([]byte, 9)
@@ -29,42 +34,36 @@ func getRandomClientId() string {
 	return "mqttwrk-" + string(bytes)
 }
 
-// Connects connect to the MQTT broker with Options.
-func (m *MQTTClient) Connect() (MQTT.Client, error) {
-
-	m.Client = MQTT.NewClient(m.Opts)
+func Connect(opts *MQTT.ClientOptions) (*MQTT.Client, error) {
+	m := MQTT.NewClient(opts)
 
 	log.Info("connecting...")
 
-	if token := m.Client.Connect(); token.Wait() && token.Error() != nil {
-		return nil, token.Error()
+	if token := m.Connect(); token.Wait() && token.Error() != nil {
+		return m, token.Error()
 	}
-	return m.Client, nil
+	return m, nil
 }
 
-func (m *MQTTClient) Publish(topic string, payload []byte, qos int, retain bool, sync bool) error {
-	token := m.Client.Publish(topic, byte(qos), retain, payload)
+func Publish(m *MQTT.Client, topic string, payload []byte, qos int, retain bool, sync bool) error {
+	token := m.Publish(topic, byte(qos), retain, payload)
 
-	if sync == true {
-		token.Wait()
-	}
-
-	return token.Error()
+	return nil
 }
 
-func (m *MQTTClient) Disconnect() error {
-	if m.Client.IsConnected() {
-		m.Client.Disconnect(20)
+func Disconnect(m *MQTT.Client) error {
+	if m.IsConnected() {
+		m.Disconnect(20)
 		log.Info("client disconnected")
 	}
 	return nil
 }
 
-func (m *MQTTClient) SubscribeOnConnect(client MQTT.Client) {
+func SubscribeOnConnect(client *MQTT.Client) {
 	log.Infof("client connected")
 
-	if len(m.Subscribed) > 0 {
-		token := client.SubscribeMultiple(m.Subscribed, m.onMessageReceived)
+	if len(Subscribed) > 0 {
+		token := client.SubscribeMultiple(Subscribed, OnMessageReceived)
 		token.Wait()
 		if token.Error() != nil {
 			log.Error(token.Error())
@@ -72,26 +71,25 @@ func (m *MQTTClient) SubscribeOnConnect(client MQTT.Client) {
 	}
 }
 
-func (m *MQTTClient) ConnectionLost(client MQTT.Client, reason error) {
+func ConnectionLost(client *MQTT.Client, reason error) {
 	log.Errorf("client disconnected: %s", reason)
 }
 
-func (m *MQTTClient) onMessageReceived(client MQTT.Client, message MQTT.Message) {
+func OnMessageReceived(client *MQTT.Client, message MQTT.Message) {
 	log.Infof("topic:%s / msg:%s", message.Topic(), message.Payload())
 	fmt.Println(string(message.Payload()))
 }
 
 // connects MQTT broker
-func connect(opts *MQTT.ClientOptions, subscribed map[string]byte) (*MQTTClient, error) {
+func connect(opts *MQTT.ClientOptions, subscribed map[string]byte) (*MQTT.Client, error) {
 
-	client := &MQTTClient{Opts: opts}
-	client.lock = new(sync.Mutex)
+	client := MQTT.NewClient(opts)
 	client.Subscribed = subscribed
 
-	opts.SetOnConnectHandler(client.SubscribeOnConnect)
-	opts.SetConnectionLostHandler(client.ConnectionLost)
+	opts.SetOnConnectHandler(SubscribeOnConnect)
+	opts.SetConnectionLostHandler(ConnectionLost)
 
-	_, err := client.Connect()
+	_, err := Connect(client)
 	if err != nil {
 		return nil, err
 	}
@@ -99,9 +97,28 @@ func connect(opts *MQTT.ClientOptions, subscribed map[string]byte) (*MQTTClient,
 	return client, nil
 }
 
-func pubsub(c *cli.Context) error {
-	setDebugLevel(c)
-	opts, err := NewOption(c)
+// newOption returns ClientOptions via parsing command line options.
+func newOption(c *cli.Context) (*MQTT.ClientOptions, error) {
+	opts := MQTT.NewClientOptions()
+
+	host := c.String("host")
+	port := c.Int("p")
+
+	clientId := getRandomClientId()
+	opts.SetClientID(clientId)
+
+	scheme := "tcp"
+	brokerUri := fmt.Sprintf("%s://%s:%d", scheme, host, port)
+	log.Infof("Broker URI: %s", brokerUri)
+	opts.AddBroker(brokerUri)
+
+	opts.SetAutoReconnect(true)
+	return opts, nil
+}
+
+// pubsubloop is a func of pub-sub event loop
+func pubsubloop(c *cli.Context) error {
+	opts, err := newOption(c)
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
@@ -151,7 +168,7 @@ func pubsub(c *cli.Context) error {
 }
 
 func main() {
-	app = cli.NewApp()
+	app := cli.NewApp()
 	app.Name = "mqttworkerforenocean-sample"
 	app.Usage = "worker -c config-file"
 	app.Version = version
@@ -198,8 +215,14 @@ func main() {
 		},
 	}
 
-	cli.VersionPrinter = printVersion
+	app.Commands = []cli.Command{
+		{
+			Name:   "loop",
+			Usage:  "loop",
+			Flags:  app.Flags,
+			Action: "pubsubloop",
+		},
+	}
 
-	app.Action = Action
 	app.Run(os.Args)
 }
