@@ -10,6 +10,8 @@ import (
 	log "github.com/Sirupsen/logrus"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/urfave/cli"
+
+	"github.com/kgbu/enocean"
 )
 
 var usage = `
@@ -20,7 +22,7 @@ var version = "sample"
 var Subscribed map[string]byte
 
 func init() {
-	log.SetLevel(log.WarnLevel)
+	log.SetLevel(log.DebugLevel)
 }
 
 // MQTT operations
@@ -68,8 +70,20 @@ func ConnectionLost(client *MQTT.Client, reason error) {
 }
 
 func OnMessageReceived(client *MQTT.Client, message MQTT.Message) {
-	log.Infof("topic:%s / msg:%s", message.Topic(), message.Payload())
-	fmt.Println(string(message.Payload()))
+	buf := message.Payload()
+	log.Infof("topic:%s / msg:%s", message.Topic(), buf)
+
+	// analyze temperture data
+	err, c, e := enocean.NewESPData(buf)
+	if err != nil {
+		log.Errorf("ERROR: %v, parse failed on $v, cosumed %v", err, buf, c)
+	}
+	temp := (255 - int(e.PayloadData[2])) * 40.0 / 255
+	err, m := enocean.GetManufacturerName(e.ManufacturerId)
+	if err != nil {
+		log.Errorf("ERROR: %v, manufacturer ID is wrong", e.ManufacturerId)
+	}
+        fmt.Printf("Data: %v : Teach in %v, made by %v, temperature %v\n", e, e.TeachIn, m, temp)
 }
 
 // connects MQTT broker
@@ -97,8 +111,7 @@ func newOption(c *cli.Context) (*MQTT.ClientOptions, error) {
 	host := c.String("host")
 	port := c.Int("p")
 
-	clientId := getRandomClientId()
-	opts.SetClientID(clientId)
+	opts.SetClientID(getRandomClientId())
 
 	scheme := "tcp"
 	brokerUri := fmt.Sprintf("%s://%s:%d", scheme, host, port)
@@ -191,7 +204,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "sub",
-			Value: "prefix/gateway/enocean/publish",
+			Value: "enoceantemp/#",
 			Usage: "subscribe topic",
 		},
 		cli.StringFlag{
