@@ -13,7 +13,7 @@ import (
 )
 
 var usage = `
-go run mqttworker.go --host hostname --sub subscribetopic --pub publishtopic
+go run mqttworker.go loop --host hostname --sub subscribetopic --pub publishtopic
 `
 
 var version = "sample"
@@ -163,7 +163,7 @@ func pubsubloop(c *cli.Context) error {
 func main() {
 	app := cli.NewApp()
 	app.Name = "mqttworkerforenocean-sample"
-	app.Usage = "worker -c config-file"
+	app.Usage = "loop -p 9883"
 	app.Version = version
 
 	commonFlags := []cli.Flag{
@@ -173,7 +173,7 @@ func main() {
 			Usage: "port number of broker",
 		},
 		cli.StringFlag{
-			Name:  "host, h",
+			Name:  "host",
 			Value: "localhost",
 			Usage: "broker hostname",
 		},
@@ -181,12 +181,14 @@ func main() {
 			Name:   "u,user",
 			Value:  "",
 			Usage:  "provide a username",
-			EnvVar: "USERNAME"},
+			EnvVar: "USERNAME",
+		},
 		cli.StringFlag{
 			Name:   "P,password",
 			Value:  "",
 			Usage:  "password",
-			EnvVar: "PASSWORD"},
+			EnvVar: "PASSWORD",
+		},
 		cli.StringFlag{
 			Name:  "sub",
 			Value: "prefix/gateway/enocean/publish",
