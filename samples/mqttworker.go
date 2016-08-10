@@ -13,7 +13,7 @@ import (
 )
 
 var usage = `
-Usage here
+go run mqttworker.go --host hostname --sub subscribetopic --pub publishtopic
 `
 
 var version = "sample"
@@ -25,7 +25,8 @@ func init() {
 
 // MQTT operations
 func getRandomClientId() string {
-	const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	// 0, 1, 6, 9 like characters are removed to avoid mis-reading
+	const alphanum = "234578ABCDEFGHJKLMNPQRSTUVWXYZacefghjkrstuvwxyz"
 	var bytes = make([]byte, 9)
 	rand.Read(bytes)
 	for i, b := range bytes {
@@ -34,19 +35,10 @@ func getRandomClientId() string {
 	return "mqttwrk-" + string(bytes)
 }
 
-func Connect(opts *MQTT.ClientOptions) (*MQTT.Client, error) {
-	m := MQTT.NewClient(opts)
-
-	log.Info("connecting...")
-
-	if token := m.Connect(); token.Wait() && token.Error() != nil {
-		return m, token.Error()
-	}
-	return m, nil
-}
 
 func Publish(m *MQTT.Client, topic string, payload []byte, qos int, retain bool, sync bool) error {
 	token := m.Publish(topic, byte(qos), retain, payload)
+	token.Wait()
 
 	return nil
 }
@@ -81,20 +73,21 @@ func OnMessageReceived(client *MQTT.Client, message MQTT.Message) {
 }
 
 // connects MQTT broker
-func connect(opts *MQTT.ClientOptions, subscribed map[string]byte) (*MQTT.Client, error) {
+func connect(opts *MQTT.ClientOptions) (*MQTT.Client, error) {
 
-	client := MQTT.NewClient(opts)
-	client.Subscribed = subscribed
 
 	opts.SetOnConnectHandler(SubscribeOnConnect)
 	opts.SetConnectionLostHandler(ConnectionLost)
 
-	_, err := Connect(client)
-	if err != nil {
-		return nil, err
+	m := MQTT.NewClient(opts)
+
+	log.Info("connecting...")
+
+	if token := m.Connect(); token.Wait() && token.Error() != nil {
+		return m, token.Error()
 	}
 
-	return client, nil
+	return m, nil
 }
 
 // newOption returns ClientOptions via parsing command line options.
@@ -139,11 +132,11 @@ func pubsubloop(c *cli.Context) error {
 	log.Infof("Pub Topic: %s", pubtopic)
 	retain := c.Bool("r")
 
-	subscribed := map[string]byte{
+	Subscribed = map[string]byte{
 		subtopic: byte(0),
 	}
 
-	client, err := connect(c, opts, subscribed)
+	client, err := connect(opts)
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
@@ -153,7 +146,7 @@ func pubsubloop(c *cli.Context) error {
 		// Read from Stdin and publish
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
-			err = client.Publish(pubtopic, []byte(scanner.Text()), qos, retain, false)
+			err = Publish(client, pubtopic, []byte(scanner.Text()), qos, retain, false)
 			if err != nil {
 				log.Error(err)
 			}
@@ -173,7 +166,7 @@ func main() {
 	app.Usage = "worker -c config-file"
 	app.Version = version
 
-	app.Flags = []cli.Flag{
+	commonFlags := []cli.Flag{
 		cli.IntFlag{
 			Name:  "port, p",
 			Value: 1883,
@@ -219,8 +212,8 @@ func main() {
 		{
 			Name:   "loop",
 			Usage:  "loop",
-			Flags:  app.Flags,
-			Action: "pubsubloop",
+			Flags:	commonFlags,
+			Action: pubsubloop,
 		},
 	}
 
