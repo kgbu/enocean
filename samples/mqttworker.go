@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"crypto/rand"
 	"fmt"
 	"os"
@@ -20,6 +19,7 @@ go run mqttworker.go loop --host hostname --sub subscribetopic --pub publishtopi
 
 var version = "sample"
 var Subscribed map[string]byte
+var msgPipe = make(chan string)
 
 func init() {
 	log.SetLevel(log.DebugLevel)
@@ -40,6 +40,7 @@ func getRandomClientId() string {
 
 func Publish(m *MQTT.Client, topic string, payload []byte, qos int, retain bool, sync bool) error {
 	token := m.Publish(topic, byte(qos), retain, payload)
+	log.Info("published: %v, to topic: %v", string(payload), topic)
 	token.Wait()
 
 	return nil
@@ -83,7 +84,9 @@ func OnMessageReceived(client *MQTT.Client, message MQTT.Message) {
 	if err != nil {
 		log.Errorf("ERROR: %v, manufacturer ID is wrong", e.ManufacturerId)
 	}
-        fmt.Printf("Data: %v : Teach in %v, made by %v, temperature %v\n", e, e.TeachIn, m, temp)
+        msg := fmt.Sprintf("{\"RawData\": \"%v\", \"TeachIn\": %v, \"manufactuererId\": \"%v\", \"temperature\": %v}", e, e.TeachIn, m, temp)
+	fmt.Println(msg)
+	msgPipe <- msg 
 }
 
 // connects MQTT broker
@@ -157,9 +160,9 @@ func pubsubloop(c *cli.Context) error {
 
 	go func() {
 		// Read from Stdin and publish
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			err = Publish(client, pubtopic, []byte(scanner.Text()), qos, retain, false)
+		for {
+			msg := <- msgPipe
+			err = Publish(client, pubtopic, []byte(msg), qos, retain, false)
 			if err != nil {
 				log.Error(err)
 			}
