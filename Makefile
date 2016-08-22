@@ -35,7 +35,7 @@ build: deps doc
 	go fmt ./...
 #	golint ./...
 	go build
-	go build $(LDFLAGS) github.com/kgbu/enocean/cmd/enocean
+	go build $(LDFLAGS) github.com/kgbu/enocean/samples/mqttworker
 
 ###### target by architecture
 

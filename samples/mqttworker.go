@@ -38,7 +38,7 @@ func getRandomClientId() string {
 }
 
 
-func Publish(m *MQTT.Client, topic string, payload []byte, qos int, retain bool, sync bool) error {
+func Publish(m MQTT.Client, topic string, payload []byte, qos int, retain bool, sync bool) error {
 	token := m.Publish(topic, byte(qos), retain, payload)
 	log.Info("published: %v, to topic: %v", string(payload), topic)
 	token.Wait()
@@ -46,7 +46,7 @@ func Publish(m *MQTT.Client, topic string, payload []byte, qos int, retain bool,
 	return nil
 }
 
-func Disconnect(m *MQTT.Client) error {
+func Disconnect(m MQTT.Client) error {
 	if m.IsConnected() {
 		m.Disconnect(20)
 		log.Info("client disconnected")
@@ -54,7 +54,7 @@ func Disconnect(m *MQTT.Client) error {
 	return nil
 }
 
-func SubscribeOnConnect(client *MQTT.Client) {
+func SubscribeOnConnect(client MQTT.Client) {
 	log.Infof("client connected")
 
 	if len(Subscribed) > 0 {
@@ -66,11 +66,11 @@ func SubscribeOnConnect(client *MQTT.Client) {
 	}
 }
 
-func ConnectionLost(client *MQTT.Client, reason error) {
+func ConnectionLost(client MQTT.Client, reason error) {
 	log.Errorf("client disconnected: %s", reason)
 }
 
-func OnMessageReceived(client *MQTT.Client, message MQTT.Message) {
+func OnMessageReceived(client MQTT.Client, message MQTT.Message) {
 	buf := message.Payload()
 	log.Infof("topic:%s / msg:%s", message.Topic(), buf)
 
@@ -90,7 +90,7 @@ func OnMessageReceived(client *MQTT.Client, message MQTT.Message) {
 }
 
 // connects MQTT broker
-func connect(opts *MQTT.ClientOptions) (*MQTT.Client, error) {
+func connect(opts *MQTT.ClientOptions) (MQTT.Client, error) {
 
 
 	opts.SetOnConnectHandler(SubscribeOnConnect)
